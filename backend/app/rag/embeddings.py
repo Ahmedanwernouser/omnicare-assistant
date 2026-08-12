@@ -55,7 +55,7 @@ class LexicalEmbeddingFunction(EmbeddingFunction[Documents]):
         return {"dim": self._dim}
 
     @staticmethod
-    def build_from_config(config: dict[str, int]) -> "LexicalEmbeddingFunction":
+    def build_from_config(config: dict[str, int]) -> LexicalEmbeddingFunction:
         return LexicalEmbeddingFunction(dim=config.get("dim", LEXICAL_DIM))
 
     def __call__(self, input: Documents) -> Embeddings:

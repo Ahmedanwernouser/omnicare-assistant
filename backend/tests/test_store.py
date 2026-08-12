@@ -70,6 +70,19 @@ def test_write_is_atomic_and_leaves_no_temp_files(
     assert json.loads(claims_path.read_text())[0]["claim_id"] == "CLM-1111"
 
 
+def test_utf8_bom_does_not_break_the_file(claims_path: Path) -> None:
+    """A Windows editor can add a BOM; that must not make claims unreadable."""
+    original = claims_path.read_text(encoding="utf-8")
+    claims_path.write_bytes(b"\xef\xbb\xbf" + original.encode("utf-8"))
+    claims = ClaimStore(claims_path).read_all()
+    assert [c["claim_id"] for c in claims] == ["CLM-8821", "CLM-9014"]
+
+
+def test_non_ascii_survives_a_round_trip(store: ClaimStore, read_claims) -> None:
+    store.append(lambda cid: {"claim_id": cid, "description": "تسرب مياه"})
+    assert any("تسرب" in str(c.get("description", "")) for c in read_claims())
+
+
 def test_corrupt_json_raises_a_clear_error(claims_path: Path) -> None:
     claims_path.write_text("{ not json", encoding="utf-8")
     with pytest.raises(ClaimStoreError, match="not valid JSON"):

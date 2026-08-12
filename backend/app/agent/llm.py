@@ -22,6 +22,7 @@ from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
+from pydantic import Field
 
 logger = logging.getLogger(__name__)
 
@@ -46,15 +47,18 @@ class ScriptedChatModel(BaseChatModel):
     script provides, which keeps a mis-scripted test from hanging.
     """
 
-    responses: list[AIMessage] = []
-    calls: list[list[BaseMessage]] = []
-    bound_tools: list[Any] = []
+    # Pydantic (BaseChatModel is a Pydantic model) deep-copies defaults per
+    # instance, so these are not shared class state. Declared with Field for
+    # clarity rather than relying on the reader knowing that.
+    responses: list[AIMessage] = Field(default_factory=list)
+    calls: list[list[BaseMessage]] = Field(default_factory=list)
+    bound_tools: list[Any] = Field(default_factory=list)
 
     @property
     def _llm_type(self) -> str:
         return "scripted"
 
-    def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> "ScriptedChatModel":
+    def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> ScriptedChatModel:
         self.bound_tools = list(tools)
         return self
 

@@ -101,7 +101,9 @@ class ClaimStore:
         if not self._path.exists():
             return []
         try:
-            raw = self._path.read_text(encoding="utf-8").strip()
+            # utf-8-sig strips a BOM if present. A Windows editor adding one
+            # would otherwise make the whole claims file unreadable.
+            raw = self._path.read_text(encoding="utf-8-sig").strip()
         except OSError as exc:
             raise ClaimStoreError(f"Cannot read {self._path}: {exc}") from exc
         if not raw:

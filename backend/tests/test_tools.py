@@ -80,6 +80,10 @@ def test_submitted_claim_is_immediately_retrievable(store: ClaimStore) -> None:
     [
         ("amount", -500),
         ("amount", 0),
+        # Rounds to 0.00, so it must be rejected rather than stored as a
+        # zero-value claim that the gt=0 rule was supposed to prevent.
+        ("amount", 0.001),
+        ("amount", 0.004),
         ("amount", 5_000_000),
         ("amount", "not a number"),
         ("policy_number", "POL-99"),
@@ -129,3 +133,19 @@ def test_claim_type_is_normalised_to_the_canonical_value(
 def test_amount_is_rounded_to_cents(store: ClaimStore) -> None:
     result = submit_claim(**{**VALID, "amount": 1234.5678}, store=store)
     assert result["claim"]["amount"] == 1234.57
+
+
+def test_rounding_happens_before_the_constraint_check(store: ClaimStore) -> None:
+    """0.005 rounds up to a real amount; 0.004 rounds to zero and must fail.
+
+    Rounding after validation would let a sub-cent amount satisfy gt=0 and then
+    be persisted as 0.00.
+    """
+    assert submit_claim(**{**VALID, "amount": 0.005}, store=store)["claim"]["amount"] == 0.01
+    assert submit_claim(**{**VALID, "amount": 0.004}, store=store)["ok"] is False
+
+
+def test_no_stored_claim_ever_has_a_zero_amount(store: ClaimStore, read_claims) -> None:
+    for amount in (0.001, 0.004, 0.0049, 0, -1):
+        submit_claim(**{**VALID, "amount": amount}, store=store)
+    assert all(c["amount"] > 0 for c in read_claims())

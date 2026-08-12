@@ -48,6 +48,14 @@ class PolicyChunk:
     doc_title: str = ""
     part: int = 1
     total_parts: int = 1
+    section_index: int = 1
+    """Position of the section in the document, 1-based.
+
+    Part of the chunk ID because section titles are not guaranteed unique — a
+    document with two sections called "Exclusions" would otherwise generate one
+    ID for both and silently upsert one over the other on re-ingestion.
+    """
+
     metadata: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -64,7 +72,7 @@ class PolicyChunk:
         """Stable ID, so re-ingesting the same document upserts rather than
         duplicates."""
         slug = re.sub(r"[^a-z0-9]+", "-", self.section_title.lower()).strip("-")
-        return f"{self.source_file}::{slug}::{self.part}"
+        return f"{self.source_file}::{self.section_index:03d}-{slug}::{self.part}"
 
     @property
     def embedding_text(self) -> str:
@@ -79,6 +87,7 @@ class PolicyChunk:
             "doc_title": self.doc_title,
             "part": self.part,
             "total_parts": self.total_parts,
+            "section_index": self.section_index,
             "citation": self.citation,
             **self.metadata,
         }
@@ -116,7 +125,7 @@ def split_policy_markdown(
     flush()
 
     chunks: list[PolicyChunk] = []
-    for title, body in sections:
+    for section_index, (title, body) in enumerate(sections, start=1):
         parts = _split_oversized(body, max_chunk_chars)
         total = len(parts)
         for index, part_text in enumerate(parts, start=1):
@@ -128,6 +137,7 @@ def split_policy_markdown(
                     doc_title=doc_title,
                     part=index,
                     total_parts=total,
+                    section_index=section_index,
                 )
             )
     return chunks

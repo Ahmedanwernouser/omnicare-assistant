@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 USER app
 ENV HOME=/home/app
 
-COPY --chown=app:app app.py api_client.py healthcheck.py ./
+COPY --chown=app:app streamlit_app.py api_client.py healthcheck.py ./
 
 EXPOSE 8501
 
@@ -28,7 +28,7 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=5 \
 # --server.address 0.0.0.0 is required for the port to be reachable from the
 # host; Streamlit binds to localhost by default and the container would look
 # like it started but refuse every connection.
-CMD ["streamlit", "run", "app.py", \
+CMD ["streamlit", "run", "streamlit_app.py", \
      "--server.port=8501", \
      "--server.address=0.0.0.0", \
      "--server.headless=true", \

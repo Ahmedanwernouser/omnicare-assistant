@@ -29,7 +29,11 @@ import chromadb
 from chromadb.config import Settings as ChromaSettings
 
 from app.rag.embeddings import build_embedding_function
-from app.rag.splitter import PolicyChunk, load_policy_chunks
+from app.rag.splitter import (
+    DEFAULT_MAX_CHUNK_CHARS,
+    PolicyChunk,
+    load_policy_chunks,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -62,11 +66,13 @@ class PolicyRetriever:
         collection_name: str = "omnicare_policy",
         embedding_backend: str = "onnx",
         top_k: int = 2,
+        max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
     ) -> None:
         self._persist_dir = Path(persist_dir)
         self._collection_name = collection_name
         self._backend = embedding_backend
         self._top_k = top_k
+        self._max_chunk_chars = max_chunk_chars
 
         self._persist_dir.mkdir(parents=True, exist_ok=True)
         self._client = chromadb.PersistentClient(
@@ -92,7 +98,9 @@ class PolicyRetriever:
         return len(chunks)
 
     def ingest_file(self, path: Path | str) -> int:
-        return self.ingest(load_policy_chunks(path))
+        return self.ingest(
+            load_policy_chunks(path, max_chunk_chars=self._max_chunk_chars)
+        )
 
     # -- search ------------------------------------------------------------
 

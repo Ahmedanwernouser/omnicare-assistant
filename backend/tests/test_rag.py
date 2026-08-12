@@ -19,7 +19,6 @@ from pathlib import Path
 import pytest
 
 from app.rag.retriever import PolicyRetriever
-from app.rag.splitter import load_policy_chunks
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -193,6 +192,31 @@ def test_switching_embedding_backend_rebuilds_instead_of_crashing(
 
     second.ingest_file(data_dir / "sample_policy.md")
     assert second.count() == 2
+
+
+def test_chunk_budget_reaches_the_splitter(tmp_path: Path, data_dir: Path) -> None:
+    """max_chunk_chars is a documented setting; it must actually take effect.
+
+    A configuration key that is declared but never read is worse than one that
+    does not exist — it tells the operator they have a control they do not.
+    """
+    long_policy = tmp_path / "long_policy.md"
+    body = "\n\n".join(f"Clause {i} with enough filler text to matter." * 4 for i in range(10))
+    long_policy.write_text(f"# Doc\n\n## Section 1: Long\n\n{body}", encoding="utf-8")
+
+    default = PolicyRetriever(
+        persist_dir=tmp_path / "chroma_default",
+        collection_name="budget_default",
+        embedding_backend="lexical",
+    )
+    tight = PolicyRetriever(
+        persist_dir=tmp_path / "chroma_tight",
+        collection_name="budget_tight",
+        embedding_backend="lexical",
+        max_chunk_chars=200,
+    )
+
+    assert tight.ingest_file(long_policy) > default.ingest_file(long_policy)
 
 
 # -- semantics (opt-in) ----------------------------------------------------

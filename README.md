@@ -38,7 +38,7 @@ pip install -r backend/requirements.txt
 cd backend && uvicorn app.main:app --reload      # terminal 1
 
 pip install -r frontend/requirements.txt
-cd frontend && streamlit run app.py              # terminal 2
+cd frontend && streamlit run streamlit_app.py              # terminal 2
 ```
 
 ---
@@ -242,9 +242,15 @@ Seven tight regex rules over NFKC-folded text, with invisible-character tricks
 handled by probing both readings of a split (`ignore\u00adall` is checked as
 both `ignoreall` and `ignore all`).
 
-**This is not a security boundary.** Anyone determined to get past a regex will.
-It exists to cut noise, and the design assumes it has already been bypassed —
-which is why layer 1 exists.
+**This is not a security boundary.** I tested it against bypasses and it loses
+to all of them: instructions in another language, base64, ROT13, leetspeak,
+letter-spacing, reversed text, and multi-turn setups where no single message
+trips a rule. Adding patterns for each would trade a real false-positive risk
+for very little — the model still receives the text either way, and what stops
+it doing damage is layer 1.
+
+The layer exists to cut obvious noise and to make attempts visible in the logs.
+The design assumes it has already been bypassed.
 
 Precision matters more than recall here. A guard that blocks *"ignore the
 previous claim I mentioned"* is worse than no guard, so alongside the 21 attacks
@@ -339,7 +345,7 @@ gates the frontend on this.
 ## Tests
 
 ```bash
-pytest          # 245 passed, 1 skipped
+pytest          # 254 passed, 1 skipped
 ```
 
 **The whole suite runs with no API key and no network.** Two seams make that
@@ -354,10 +360,10 @@ possible:
 
 | File | Tests | Covers |
 |---|---|---|
-| `test_store.py` | 10 | Atomicity, locking, concurrent appends, corrupt files |
-| `test_tools.py` | 29 | Tool contracts and the validation boundary |
-| `test_splitter.py` | 16 | Chunking, citations, oversized sections |
-| `test_rag.py` | 21 | Ingestion, ranking, persistence, backend migration |
+| `test_store.py` | 12 | Atomicity, locking, concurrent appends, corrupt files |
+| `test_tools.py` | 33 | Tool contracts and the validation boundary |
+| `test_splitter.py` | 18 | Chunking, citations, oversized sections |
+| `test_rag.py` | 22 | Ingestion, ranking, persistence, backend migration |
 | `test_safety.py` | 68 | Attacks blocked, legitimate questions not blocked |
 | `test_agent.py` | 21 | Graph routing, tool loop, failure modes, memory |
 | `test_llm.py` | 12 | Provider factory and credential errors |
@@ -386,6 +392,14 @@ memory of their own last message. Scaling out means moving the checkpointer to
 Redis or Postgres.
 
 **Sessions do not survive a restart.** Same cause, same fix.
+
+**Conversation history is unbounded.** Every turn is kept, so the prompt grows
+without limit. Measured: 60 turns of coverage questions, each with a retrieval
+tool call, reach ~2,700 tokens — several hundred turns would be needed to
+threaten a 32k context window, so a trimmer is not worth the failure mode it
+introduces (an orphaned `ToolMessage` whose `AIMessage` was trimmed away is
+rejected by most providers). At production scale it becomes a sliding window
+that trims on message *pairs*, not individual messages.
 
 **Claim submission does not verify the policy exists.** Format is validated;
 existence is not, because the provided data contains claims but no policy
@@ -455,7 +469,7 @@ omnicare-assistant/
 │   └── tests/
 └── frontend/
     ├── Dockerfile
-    ├── app.py                    # Streamlit UI
+    ├── streamlit_app.py          # Streamlit UI (named to avoid shadowing backend/app/)
     ├── api_client.py             # backend calls, separated so they're testable
     └── tests/
 ```

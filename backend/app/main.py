@@ -47,6 +47,7 @@ def _bootstrap(app: FastAPI, settings: Settings) -> None:
         collection_name=settings.collection_name,
         embedding_backend=settings.embedding_backend,
         top_k=settings.retrieval_top_k,
+        max_chunk_chars=settings.max_chunk_chars,
     )
     indexed = retriever.ingest_file(settings.policy_path)
     app.state.indexed_chunks = indexed
@@ -85,7 +86,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         _bootstrap(app, settings)
     except Exception as exc:  # noqa: BLE001 - reported through /chat and /ready
         app.state.startup_error = str(exc)
-        logger.error("Startup failed, /chat will return 503: %s", exc)
+        logger.exception("Startup failed, /chat will return 503: %s", exc)
 
     yield
 

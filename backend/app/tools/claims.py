@@ -101,12 +101,23 @@ class ClaimSubmission(BaseModel):
     @field_validator("amount", mode="before")
     @classmethod
     def _parse_amount(cls, value: Any) -> Any:
-        # LLMs routinely emit "$3,500.00" instead of 3500.0.
+        """Normalise, then round to cents *before* the constraints run.
+
+        Rounding after validation would let 0.001 satisfy ``gt=0`` and then be
+        stored as 0.00 — a persisted value that violates the rule the schema
+        just enforced. Rounding here means the constraint applies to the number
+        that actually gets written.
+        """
         if isinstance(value, str):
-            stripped = value.strip().replace("$", "").replace(",", "").replace("_", "")
-            if stripped:
-                return stripped
-        return value
+            # LLMs routinely emit "$3,500.00" instead of 3500.0.
+            value = value.strip().replace("$", "").replace(",", "").replace("_", "")
+            if not value:
+                return value
+        try:
+            return round(float(value), 2)
+        except (TypeError, ValueError):
+            # Not a number: hand it back so Pydantic reports the type error.
+            return value
 
 
 # --------------------------------------------------------------------------
@@ -190,7 +201,7 @@ def submit_claim(
             "policy_number": submission.policy_number,
             "claim_type": submission.claim_type,
             "status": _NEW_CLAIM_STATUS,
-            "amount": round(submission.amount, 2),
+            "amount": submission.amount,  # already rounded by the validator
             "description": submission.description,
         }
 

@@ -111,6 +111,44 @@ def test_empty_sections_are_dropped() -> None:
     assert [c.section_title for c in out] == ["Real"]
 
 
+def test_duplicate_section_titles_get_distinct_ids() -> None:
+    """Section titles are not unique in real documents.
+
+    Without the section index in the ID, two sections called "Exclusions" would
+    produce the same chunk_id and the second would silently upsert over the
+    first — losing a clause from the index with no error.
+    """
+    out = split_policy_markdown(
+        "## Exclusions\n\nFlood is excluded.\n\n## Exclusions\n\nWear and tear is excluded.",
+        source_file="policy.md",
+    )
+    assert len(out) == 2
+    assert len({c.chunk_id for c in out}) == 2
+    assert out[0].section_index == 1
+    assert out[1].section_index == 2
+
+
+def test_duplicate_titled_sections_both_survive_ingestion(
+    tmp_path, data_dir
+) -> None:
+    """The consequence of the bug above, at the vector-store level."""
+    from app.rag.retriever import PolicyRetriever
+
+    doc = tmp_path / "dupes.md"
+    doc.write_text(
+        "# Policy\n\n## Exclusions\n\nFlood damage is excluded.\n\n"
+        "## Exclusions\n\nWear and tear is excluded.",
+        encoding="utf-8",
+    )
+    retriever = PolicyRetriever(
+        persist_dir=tmp_path / "chroma_dupes",
+        collection_name="dupes_test",
+        embedding_backend="lexical",
+    )
+    retriever.ingest_file(doc)
+    assert retriever.count() == 2, "a section was silently overwritten"
+
+
 def test_oversized_section_is_split_and_parts_stay_citable() -> None:
     body = "\n\n".join(f"Paragraph number {i} with filler text." * 6 for i in range(12))
     out = split_policy_markdown(
@@ -118,7 +156,7 @@ def test_oversized_section_is_split_and_parts_stay_citable() -> None:
     )
     assert len(out) > 1
     assert all(c.section_title == "Big Section" for c in out)
-    assert out[0].citation == "x.md § Big Section (part 1/%d)" % len(out)
+    assert out[0].citation == f"x.md § Big Section (part 1/{len(out)})"
     assert len({c.chunk_id for c in out}) == len(out)
 
 
