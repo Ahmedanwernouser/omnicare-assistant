@@ -31,3 +31,4 @@ uvicorn[standard]==0.52.1
 # --- Tests -----------------------------------------------------------------
 pytest==9.1.1
 httpx==0.28.1          # required by fastapi.testclient
+pyyaml==6.0.3          # used by tests/test_docker.py to parse docker-compose.yml

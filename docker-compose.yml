@@ -1,0 +1,53 @@
+# docker compose up
+#
+# No `version:` key — it has been obsolete since Compose v2 and only produces a
+# warning now.
+#
+# Configuration comes through ${VAR} interpolation rather than `env_file:`.
+# Compose loads ./.env automatically for interpolation, so this works whether
+# or not the reviewer has created one. With no .env the stack still starts,
+# /api/v1/health answers, and /api/v1/chat returns 503 naming the variable to
+# set — which is a far better first minute than a container crash loop.
+
+services:
+  backend:
+    build:
+      context: ./backend
+    image: omnicare-backend:1.0.0
+    ports:
+      - "8000:8000"
+    environment:
+      LLM_PROVIDER: ${LLM_PROVIDER:-groq}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.0}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      EMBEDDING_BACKEND: ${EMBEDDING_BACKEND:-onnx}
+      RETRIEVAL_TOP_K: ${RETRIEVAL_TOP_K:-2}
+      MAX_TOOL_ITERATIONS: ${MAX_TOOL_ITERATIONS:-5}
+      MAX_MESSAGE_CHARS: ${MAX_MESSAGE_CHARS:-2000}
+    volumes:
+      # Bind mount, not a named volume, so a claim filed through the UI shows
+      # up in backend/data/mock_claims.json on the host — visible proof the
+      # write happened. If your host UID is not 1000 and writes are denied,
+      # add `user: "${UID:-1000}:${GID:-1000}"` and run with
+      # `UID=$(id -u) GID=$(id -g) docker compose up`.
+      - ./backend/data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    image: omnicare-frontend:1.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      # Service name, not localhost: inside the network, localhost is the
+      # frontend container itself.
+      BACKEND_URL: http://backend:8000
+    depends_on:
+      backend:
+        # Waits for /api/v1/ready, so the UI never opens onto an empty index.
+        condition: service_healthy
+    restart: unless-stopped
