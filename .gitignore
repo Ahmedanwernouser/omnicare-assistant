@@ -17,3 +17,5 @@ venv/
 .DS_Store
 .vscode/
 .idea/
+.ruff_cache/
+.mypy_cache/
