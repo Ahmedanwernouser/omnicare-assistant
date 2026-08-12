@@ -15,9 +15,17 @@ filelock==3.32.2
 # image build time.
 chromadb==1.5.9
 
+# --- Agent -----------------------------------------------------------------
+langgraph==1.2.11
+langchain-core==1.5.4
+
+# Provider SDKs: install only the one LLM_PROVIDER names. Uncomment as needed.
+langchain-groq==1.1.3
+# langchain-openai==1.1.2
+# langchain-anthropic==1.2.0
+
 # --- Tests -----------------------------------------------------------------
 pytest==9.1.1
 
 # --- Added in later steps --------------------------------------------------
 # fastapi / uvicorn        (REST API)
-# langgraph / langchain-*  (agent graph)
