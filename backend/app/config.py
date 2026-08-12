@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     chroma_dir: Path = Field(default=_BACKEND_ROOT / ".chroma")
     collection_name: str = "omnicare_policy"
     retrieval_top_k: int = 2
+    max_chunk_chars: int = 1200
+    #: "onnx" downloads all-MiniLM-L6-v2 on first use (warmed at image build
+    #: time); "lexical" is the offline, deterministic backend used by tests.
+    embedding_backend: str = "onnx"
 
     # --- LLM --------------------------------------------------------------
     llm_provider: str = "groq"          # groq | openai | anthropic | fake

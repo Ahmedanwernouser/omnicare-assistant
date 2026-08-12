@@ -9,10 +9,15 @@ pydantic-settings==2.15.0
 # --- Persistence -----------------------------------------------------------
 filelock==3.32.2
 
+# --- RAG -------------------------------------------------------------------
+# Bundles all-MiniLM-L6-v2 via onnxruntime: no API key, no paid service.
+# The weights are NOT in the wheel - scripts/warm_embeddings.py caches them at
+# image build time.
+chromadb==1.5.9
+
 # --- Tests -----------------------------------------------------------------
 pytest==9.1.1
 
 # --- Added in later steps --------------------------------------------------
-# fastapi / uvicorn        (step 8: REST API)
-# langgraph / langchain-*  (step 7: agent graph)
-# chromadb                 (step 3: vector store)
+# fastapi / uvicorn        (REST API)
+# langgraph / langchain-*  (agent graph)
