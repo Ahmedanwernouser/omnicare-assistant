@@ -1,0 +1,18 @@
+# Exact pins, not ranges. The LangChain/LangGraph ecosystem ships breaking
+# changes on a two-week cadence; an unpinned build that works today can fail
+# for a reviewer next week. Regenerate with `pip freeze` after any upgrade.
+
+# --- Validation & settings -------------------------------------------------
+pydantic==2.13.4
+pydantic-settings==2.15.0
+
+# --- Persistence -----------------------------------------------------------
+filelock==3.32.2
+
+# --- Tests -----------------------------------------------------------------
+pytest==9.1.1
+
+# --- Added in later steps --------------------------------------------------
+# fastapi / uvicorn        (step 8: REST API)
+# langgraph / langchain-*  (step 7: agent graph)
+# chromadb                 (step 3: vector store)
