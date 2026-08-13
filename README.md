@@ -11,6 +11,10 @@ Streamlit chat UI  →  FastAPI  →  LangGraph agent  →  Chroma (policy RAG)
 
 ---
 
+[![CI](https://github.com/Ahmedanwernouser/omnicare-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/Ahmedanwernouser/omnicare-assistant/actions/workflows/ci.yml)
+
+**▶ [Watch the 2-minute walkthrough](https://www.loom.com/share/d871a033a91b43a5811c906374f345c8)** · [step-by-step notes](WALKTHROUGH.md)
+
 ## Quickstart
 
 ```bash
