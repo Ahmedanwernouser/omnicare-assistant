@@ -483,12 +483,17 @@ Everything is environment-driven; see `.env.example`.
 | Variable | Default | Notes |
 |---|---|---|
 | `LLM_PROVIDER` | `groq` | `groq`, `openai`, `anthropic`, `scripted` |
-| `LLM_MODEL` | provider default | e.g. `llama-3.3-70b-versatile` |
+| `LLM_MODEL` | provider default | Groq default is `openai/gpt-oss-120b` |
 | `GROQ_API_KEY` | — | Only the key matching the provider is needed |
 | `EMBEDDING_BACKEND` | `onnx` | `lexical` for offline runs |
 | `RETRIEVAL_TOP_K` | `2` | Passages per search |
 | `MAX_TOOL_ITERATIONS` | `5` | Tool-loop cap |
 | `MAX_MESSAGE_CHARS` | `2000` | Guard's length limit |
+
+Groq's Llama models were tested first and rejected: 3.3-70B returns tool calls
+wrapped in `<function=...>` tags that the API rejects with `400
+tool_use_failed`, and 3.1-8B calls tools correctly but is too small to turn the
+result into an answer. `openai/gpt-oss-120b` handles both.
 
 ### One build-time detail worth knowing
 
