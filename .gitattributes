@@ -1,0 +1,19 @@
+# Line endings.
+#
+# This repo is developed on Windows and reviewed on Linux (inside Docker).
+# Without this file, Git on Windows can commit CRLF into shell scripts, and a
+# .sh file with CRLF fails on Linux with a confusing "bad interpreter" error.
+# Normalise text in the repository, and force LF for anything a Linux shell or
+# Docker will execute.
+
+* text=auto eol=lf
+
+*.sh        text eol=lf
+*.py        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.md        text eol=lf
+*.json      text eol=lf
+*.ini       text eol=lf
+Dockerfile  text eol=lf
+.env.example text eol=lf
