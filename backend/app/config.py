@@ -19,7 +19,17 @@ _BACKEND_ROOT = Path(__file__).resolve().parent.parent
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # Searched in order, first match wins. A single relative ".env" would
+        # resolve against the *working directory*, so running
+        # `cd backend && uvicorn app.main:app` — which is what the README's
+        # non-Docker instructions say to do — would look for backend/.env and
+        # silently miss the .env at the repo root. Listing the real locations
+        # makes the key findable from anywhere.
+        env_file=(
+            _BACKEND_ROOT.parent / ".env",  # repo root (where .env.example is)
+            _BACKEND_ROOT / ".env",  # backend/, if someone put one there
+            ".env",  # whatever the working directory is
+        ),
         env_file_encoding="utf-8",
         extra="ignore",
     )

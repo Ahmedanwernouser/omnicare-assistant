@@ -1,0 +1,103 @@
+name: CI
+
+# Two jobs, because they prove different things.
+#
+# `tests` proves the suite runs with no API key and no network access to a
+# model provider — the claim the README makes.
+#
+# `docker` proves the submission requirement that `docker compose up` launches
+# everything. That was the one thing I could not verify locally: the machine I
+# built this on has hardware virtualisation disabled by IT policy, so Docker
+# Desktop will not start. Rather than ship an unverified Dockerfile and hope,
+# this job builds both images from scratch on every push — including the
+# embedding-model warm-up, which is the step most likely to break — brings the
+# stack up with Compose, and waits for the readiness probe.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: Tests (no API key, no network)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install -r frontend/requirements.txt
+
+      - name: Run the suite
+        # No GROQ_API_KEY is set anywhere in this job. If the suite needs one,
+        # this step fails and the claim in the README is false.
+        run: pytest
+
+  docker:
+    name: docker compose up
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build both images
+        # The backend build downloads all-MiniLM-L6-v2 (~80 MB) during
+        # `RUN python scripts/warm_embeddings.py`. If that step is broken the
+        # build fails here rather than in front of a reviewer.
+        run: docker compose build
+
+      - name: Confirm the embedding model is baked into the image
+        run: |
+          docker compose run --rm --no-deps backend python -c "
+          import sys
+          from pathlib import Path
+          cache = Path.home() / '.cache/chroma/onnx_models/all-MiniLM-L6-v2'
+          print(f'cache: {cache} exists={cache.exists()}')
+          sys.exit(0 if cache.exists() else 1)
+          "
+
+      - name: Start the stack
+        # LLM_PROVIDER=scripted keeps this key-free. Everything else — the
+        # images, the Compose wiring, the healthcheck, the service-name
+        # networking — is exactly what a reviewer runs.
+        env:
+          LLM_PROVIDER: scripted
+        run: docker compose up -d --wait --wait-timeout 300
+
+      - name: Check the documented endpoints
+        run: |
+          set -e
+          echo "--- GET /api/v1/health ---"
+          body=$(curl -sf http://localhost:8000/api/v1/health)
+          echo "$body"
+          test "$body" = '{"status":"healthy"}'
+
+          echo "--- GET /api/v1/ready ---"
+          curl -sf http://localhost:8000/api/v1/ready
+
+          echo "--- Streamlit ---"
+          curl -sf http://localhost:8501/_stcore/health
+
+          echo "--- POST /api/v1/chat returns exactly the three keys ---"
+          keys=$(curl -sf -X POST http://localhost:8000/api/v1/chat \
+            -H 'Content-Type: application/json' \
+            -d '{"user_id":"ci","message":"hello"}' \
+            | python3 -c 'import json,sys; print(",".join(sorted(json.load(sys.stdin))))')
+          echo "$keys"
+          test "$keys" = "response,sources,tool_calls"
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

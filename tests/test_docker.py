@@ -17,6 +17,7 @@ expensive to discover — every one of these corresponds to a real failure mode:
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -93,14 +94,13 @@ def test_frontend_runs_as_a_non_root_user() -> None:
 
 
 @pytest.mark.parametrize(
-    ("dockerfile", "script"),
-    [(BACKEND_DOCKERFILE, "healthcheck.py"), (FRONTEND_DOCKERFILE, "healthcheck.py")],
+    "dockerfile",
+    [BACKEND_DOCKERFILE, FRONTEND_DOCKERFILE],
+    ids=["backend", "frontend"],
 )
-def test_healthchecks_use_a_script_not_inline_escaping(
-    dockerfile: str, script: str
-) -> None:
+def test_healthchecks_use_a_script_not_inline_escaping(dockerfile: str) -> None:
     assert "HEALTHCHECK" in dockerfile
-    assert script in dockerfile
+    assert "healthcheck.py" in dockerfile
 
 
 # -- compose ---------------------------------------------------------------
@@ -162,3 +162,78 @@ def test_dockerignore_excludes_secrets_and_caches(service: str) -> None:
 
 def test_env_file_is_gitignored() -> None:
     assert ".env" in (ROOT / ".gitignore").read_text()
+
+
+# -- build reliability -----------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "dockerfile",
+    [BACKEND_DOCKERFILE, FRONTEND_DOCKERFILE],
+    ids=["backend", "frontend"],
+)
+def test_base_image_pins_the_debian_release(dockerfile: str) -> None:
+    """The Debian release fixes glibc, and glibc decides whether the compiled
+    wheels install or try to build from source.
+
+    bookworm ships glibc 2.36; the strictest wheel in the stack (onnxruntime,
+    and pyarrow on the frontend) needs 2.28. Plain `python:3.12-slim` follows
+    whatever Debian is current, so a future base bump could silently move that
+    floor.
+    """
+    assert "python:3.12-slim-bookworm" in dockerfile
+
+
+@pytest.mark.parametrize(
+    "dockerfile",
+    [BACKEND_DOCKERFILE, FRONTEND_DOCKERFILE],
+    ids=["backend", "frontend"],
+)
+def test_no_syntax_directive(dockerfile: str) -> None:
+    """A `# syntax=` directive makes BuildKit pull docker/dockerfile:1 from
+    Docker Hub before reading line one. Neither image uses a BuildKit-only
+    feature, so that is a network round trip that can fail behind a rate limit
+    for no benefit."""
+    first_line = dockerfile.lstrip().splitlines()[0]
+    assert not first_line.startswith("# syntax=")
+
+
+@pytest.mark.parametrize(
+    "dockerfile",
+    [BACKEND_DOCKERFILE, FRONTEND_DOCKERFILE],
+    ids=["backend", "frontend"],
+)
+def test_no_build_toolchain_is_installed(dockerfile: str) -> None:
+    """Every compiled dependency ships manylinux wheels for x86_64 and
+    aarch64, so no compiler is needed. Installing build-essential would add
+    minutes and hundreds of megabytes to hide a problem that does not exist."""
+    assert "build-essential" not in dockerfile
+    assert "apt-get install" not in dockerfile
+
+
+def test_backend_start_period_covers_a_cold_start() -> None:
+    """Importing chromadb and langgraph and loading the ONNX session takes
+    tens of seconds. Too short a start-period marks a healthy container
+    unhealthy and Compose never starts the frontend."""
+    match = re.search(r"--start-period=(\d+)s", BACKEND_DOCKERFILE)
+    assert match is not None
+    assert int(match.group(1)) >= 45
+
+
+def test_every_copy_source_exists_in_its_build_context() -> None:
+    """A COPY of a path that is not in the context fails the build."""
+    import shlex
+
+    for dockerfile, context in (
+        (ROOT / "backend" / "Dockerfile", ROOT / "backend"),
+        (ROOT / "frontend" / "Dockerfile", ROOT / "frontend"),
+    ):
+        for line in dockerfile.read_text().splitlines():
+            line = line.strip()
+            if not line.upper().startswith("COPY "):
+                continue
+            parts = [p for p in shlex.split(line)[1:] if not p.startswith("--")]
+            for source in parts[:-1]:
+                assert (context / source).exists(), (
+                    f"{dockerfile.name}: COPY {source} is not in {context.name}/"
+                )
