@@ -349,7 +349,7 @@ gates the frontend on this.
 ## Tests
 
 ```bash
-pytest          # 254 passed, 1 skipped
+pytest          # 263 passed
 ```
 
 **The whole suite runs with no API key and no network.** Two seams make that
@@ -373,7 +373,7 @@ possible:
 | `test_llm.py` | 12 | Provider factory and credential errors |
 | `test_api.py` | 26 | HTTP contract, validation, error mapping |
 | `test_api_client.py` | 20 | Frontend error handling |
-| `test_docker.py` | 23 | Image and Compose invariants |
+| `test_docker.py` | 31 | Image and Compose invariants |
 
 A note on how these were written: several were checked by breaking the code
 they cover and confirming they fail. The concurrency test was validated against
