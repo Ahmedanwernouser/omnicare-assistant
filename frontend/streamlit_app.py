@@ -34,11 +34,18 @@ SAMPLE_QUESTIONS = [
 # --------------------------------------------------------------------------
 # Rendering
 # --------------------------------------------------------------------------
+def _escape_currency(text: str) -> str:
+    """Stop Markdown reading a pair of dollar signs as LaTeX.
 
+    "$25,000 with a $500 deductible" is valid Markdown for an inline equation,
+    so the amounts render as italic maths instead of currency. Escaping the
+    dollar sign keeps policy figures looking like money.
+    """
+    return text.replace("$", r"\$")
 
 def render_turn(turn: dict) -> None:
     """Draw one assistant turn: the answer, then how it was produced."""
-    st.markdown(turn["content"])
+    st.markdown(_escape_currency(turn["content"]))
 
     sources = turn.get("sources") or []
     tool_calls = turn.get("tool_calls") or []

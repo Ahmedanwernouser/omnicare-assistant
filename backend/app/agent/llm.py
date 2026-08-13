@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 #: Sensible free-tier defaults. Override with LLM_MODEL.
 DEFAULT_MODELS = {
-    "groq": "llama-3.3-70b-versatile",
+    "groq": "openai/gpt-oss-120b",
     "openai": "gpt-4o-mini",
     "anthropic": "claude-3-5-haiku-latest",
 }
